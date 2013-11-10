@@ -56,5 +56,7 @@ CHANGELOG.md
 
 config.js
 
+*.lock
+
 # Built asset files
 /core/built
