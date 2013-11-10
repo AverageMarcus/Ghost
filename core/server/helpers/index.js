@@ -1,6 +1,7 @@
 var _               = require('underscore'),
     moment          = require('moment'),
     downsize        = require('downsize'),
+    truncatise        = require('truncatise'),
     when            = require('when'),
     hbs             = require('express-hbs'),
     errors          = require('../errorHandling'),
@@ -172,22 +173,29 @@ coreHelpers.content = function (options) {
 // **returns** SafeString truncated, HTML-free content.
 //
 coreHelpers.excerpt = function (options) {
-    var truncateOptions = (options || {}).hash || {},
+    var truncateOptions = (options || {}).hash ||  {TruncateLength: 2, TruncateBy : "paragraphs", StripHTML : false, Suffix : '...'},
         excerpt;
 
-    truncateOptions = _.pick(truncateOptions, ['words', 'characters']);
+    truncateOptions = _.pick(truncateOptions, ['TruncateBy', 'TruncateLength', 'StripHTML', 'Strict', 'Suffix']);
 
-    /*jslint regexp:true */
-    excerpt = String(this.html).replace(/<\/?[^>]+>/gi, '');
-    excerpt = excerpt.replace(/(\r\n|\n|\r)+/gm, ' ');
-    /*jslint regexp:false */
+    excerpt = String(this.html);
 
-    if (!truncateOptions.words && !truncateOptions.characters) {
-        truncateOptions.words = 50;
+    //Set default values
+    if (!truncateOptions.TruncateLength) {
+        truncateOptions.TruncateLength = 2;
+    }
+    if (!truncateOptions.TruncateBy) {
+        truncateOptions.TruncateBy = "paragraphs";
+    }
+    if (!truncateOptions.StripHTML) {
+        truncateOptions.StripHTML = false;
+    }
+    if (!truncateOptions.Suffix) {
+        truncateOptions.Suffix = "&hellip;";
     }
 
     return new hbs.handlebars.SafeString(
-        downsize(excerpt, truncateOptions)
+        truncatise(excerpt, truncateOptions)
     );
 };
 
