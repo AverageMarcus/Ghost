@@ -193,26 +193,35 @@ coreHelpers.content = function (options) {
 // **returns** SafeString truncated, HTML-free content.
 //
 coreHelpers.excerpt = function (options) {
-    var truncateOptions = (options || {}).hash ||  {TruncateLength: 2, TruncateBy : "paragraphs", StripHTML : false, Suffix : '...'},
+    var truncateOptions = (options || {}).hash ||  {},
+        legacyOptions,
         excerpt;
 
     truncateOptions = _.pick(truncateOptions, ['TruncateBy', 'TruncateLength', 'StripHTML', 'Strict', 'Suffix']);
 
+    //Support for old style options (and add in paragraphs while we're at it)
+    if (!truncateOptions.TruncateLength && !truncateOptions.TruncateBy) {
+        legacyOptions = _.pick(truncateOptions, ['words', 'characters', 'paragraphs']);
+
+        if (legacyOptions.paragraphs) {
+            truncateOptions.TruncateBy = "paragraphs";
+            truncateOptions.TruncateLength = legacyOptions.paragraphs;
+        } else if (legacyOptions.words) {
+            truncateOptions.TruncateBy = "words";
+            truncateOptions.TruncateLength = legacyOptions.words;
+        } else if (legacyOptions.characters) {
+            truncateOptions.TruncateBy = "characters";
+            truncateOptions.TruncateLength = legacyOptions.characters;
+        }
+    }
+
     excerpt = String(this.html);
 
     //Set default values
-    if (!truncateOptions.TruncateLength) {
-        truncateOptions.TruncateLength = 2;
-    }
-    if (!truncateOptions.TruncateBy) {
-        truncateOptions.TruncateBy = "paragraphs";
-    }
-    if (!truncateOptions.StripHTML) {
-        truncateOptions.StripHTML = false;
-    }
-    if (!truncateOptions.Suffix) {
-        truncateOptions.Suffix = "&hellip;";
-    }
+    truncateOptions.TruncateLength = truncateOptions.TruncateLength || 2;
+    truncateOptions.TruncateBy = truncateOptions.TruncateBy || "paragraphs";
+    truncateOptions.StripHTML = truncateOptions.StripHTML || false;
+    truncateOptions.Suffix = truncateOptions.Suffix || "";
 
     return new hbs.handlebars.SafeString(
         truncatise(excerpt, truncateOptions)
