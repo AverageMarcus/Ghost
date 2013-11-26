@@ -218,8 +218,8 @@ coreHelpers.excerpt = function (options) {
     excerpt = String(this.html);
 
     //Set default values
-    truncateOptions.TruncateLength = truncateOptions.TruncateLength || 2;
-    truncateOptions.TruncateBy = truncateOptions.TruncateBy || "paragraphs";
+    truncateOptions.TruncateLength = truncateOptions.TruncateLength || 50;
+    truncateOptions.TruncateBy = truncateOptions.TruncateBy || "words";
     truncateOptions.StripHTML = truncateOptions.StripHTML || true;
     truncateOptions.Suffix = truncateOptions.Suffix || "";
 
