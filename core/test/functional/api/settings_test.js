@@ -14,37 +14,30 @@ describe('Settings API', function () {
     before(function (done) {
         testUtils.clearData()
             .then(function () {
-                done();
-            }, done);
-    });
-
-    beforeEach(function (done) {
-        testUtils.initData()
+                return testUtils.initData();
+            })
             .then(function () {
                 return testUtils.insertDefaultFixtures();
             })
             .then(function () {
-                // do a get request to get the CSRF token first
                 request.get(testUtils.API.getSigninURL(), function (error, response, body) {
                     response.should.have.status(200);
                     var pattern_meta = /<meta.*?name="csrf-param".*?content="(.*?)".*?>/i;
                     pattern_meta.should.exist;
                     csrfToken = body.match(pattern_meta)[1];
-                    setTimeout((function() {
-                        request.post({uri:testUtils.API.getSigninURL(),
+                    setTimeout((function () {
+                        request.post({uri: testUtils.API.getSigninURL(),
                                 headers: {'X-CSRF-Token': csrfToken}}, function (error, response, body) {
                             response.should.have.status(200);
-                            done();
+                            request.get(testUtils.API.getAdminURL(), function (error, response, body) {
+                                response.should.have.status(200);
+                                csrfToken = body.match(pattern_meta)[1];
+                                done();
+                            });
                         }).form({email: user.email, password: user.password});
                     }), 2000);
                 });
             }, done);
-    });
-
-    afterEach(function (done) {
-        testUtils.clearData().then(function () {
-            done();
-        }, done);
     });
 
     // TODO: currently includes values of type=core

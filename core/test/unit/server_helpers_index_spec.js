@@ -176,9 +176,9 @@ describe('Core Helpers', function () {
 
         it('can render class string for context', function (done) {
             when.all([
-                helpers.body_class.call({path: '/'}),
-                helpers.body_class.call({path: '/a-post-title'}),
-                helpers.body_class.call({path: '/page/4'})
+                helpers.body_class.call({ghostRoot: '/'}),
+                helpers.body_class.call({ghostRoot: '/a-post-title'}),
+                helpers.body_class.call({ghostRoot: '/page/4'})
             ]).then(function (rendered) {
                 rendered.length.should.equal(3);
 
@@ -196,7 +196,7 @@ describe('Core Helpers', function () {
 
         it('can render class for static page', function (done) {
             helpers.body_class.call({
-                path: '/',
+                ghostRoot: '/',
                 post: {
                     page: true
                 }
@@ -242,7 +242,7 @@ describe('Core Helpers', function () {
         it('returns meta tag string', function (done) {
             helpers.ghost_head.call({version: "0.3.0"}).then(function (rendered) {
                 should.exist(rendered);
-                rendered.string.should.equal('<meta name="generator" content="Ghost 0.3" />\n<link rel="alternate" type="application/rss+xml" title="RSS" href="/rss/">');
+                rendered.string.should.equal('<meta name="generator" content="Ghost 0.3" />\n<link rel="alternate" type="application/rss+xml" title="Ghost" href="/rss/">');
 
                 done();
             });
@@ -251,7 +251,7 @@ describe('Core Helpers', function () {
         it('returns meta tag string even if version is invalid', function () {
             var rendered = helpers.ghost_head.call({version: "0.9"}).then(function (rendered) {
                 should.exist(rendered);
-                rendered.string.should.equal('<meta name="generator" content="Ghost 0.9" />\n<link rel="alternate" type="application/rss+xml" title="RSS" href="/rss/">');
+                rendered.string.should.equal('<meta name="generator" content="Ghost 0.9" />\n<link rel="alternate" type="application/rss+xml" title="Ghost" href="/rss/">');
             });
         });
     });
@@ -264,7 +264,7 @@ describe('Core Helpers', function () {
         it('returns meta tag string', function (done) {
             helpers.ghost_foot.call().then(function (rendered) {
                 should.exist(rendered);
-                rendered.string.should.equal('<script src="/shared/vendor/jquery/jquery.js"></script>');
+                rendered.string.should.match(/<script src=".*\/shared\/vendor\/jquery\/jquery.js"><\/script>/);
 
                 done();
             });
@@ -277,18 +277,18 @@ describe('Core Helpers', function () {
         });
 
         it('should return a the slug with a prefix slash if the context is a post', function () {
-            var rendered = helpers.url.call({html: 'content', markdown: "ff", title: "title", slug: "slug"});
+            var rendered = helpers.url.call({html: 'content', markdown: "ff", title: "title", slug: "slug", created_at: new Date(0)});
             should.exist(rendered);
             rendered.should.equal('/slug/');
         });
 
         it('should output an absolute URL if the option is present', function () {
-            var configStub = sinon.stub(ghost, "config", function () {
+            var configStub = sinon.stub(ghost, "blogGlobals", function () {
                     return { url: 'http://testurl.com' };
                 }),
 
                 rendered = helpers.url.call(
-                    {html: 'content', markdown: "ff", title: "title", slug: "slug"},
+                    {html: 'content', markdown: "ff", title: "title", slug: "slug", created_at: new Date(0)},
                     {hash: { absolute: 'true'}}
                 );
 
@@ -510,7 +510,7 @@ describe('Core Helpers', function () {
         });
 
         it('can return blog title', function (done) {
-            helpers.meta_title.call({path: '/'}).then(function (rendered) {
+            helpers.meta_title.call({ghostRoot: '/'}).then(function (rendered) {
                 should.exist(rendered);
                 rendered.string.should.equal('Ghost');
 
@@ -519,7 +519,7 @@ describe('Core Helpers', function () {
         });
 
         it('can return title of a post', function (done) {
-            var post = {path: '/nice-post', post: {title: 'Post Title'}};
+            var post = {ghostRoot: '/nice-post', post: {title: 'Post Title'}};
             helpers.meta_title.call(post).then(function (rendered) {
                 should.exist(rendered);
                 rendered.string.should.equal('Post Title');
@@ -536,7 +536,7 @@ describe('Core Helpers', function () {
         });
 
         it('can return blog description', function () {
-            helpers.meta_description.call({path: '/'}).then(function (rendered) {
+            helpers.meta_description.call({ghostRoot: '/'}).then(function (rendered) {
                 should.exist(rendered);
                 rendered.string.should.equal('Just a blogging platform.');
 
@@ -545,7 +545,7 @@ describe('Core Helpers', function () {
         });
 
         it('can return empty description on post', function (done) {
-            var post = {path: '/nice-post', post: {title: 'Post Title'}};
+            var post = {ghostRoot: '/nice-post', post: {title: 'Post Title'}};
             helpers.meta_description.call(post).then(function (rendered) {
                 should.exist(rendered);
                 rendered.string.should.equal('');
@@ -553,6 +553,31 @@ describe('Core Helpers', function () {
                 done();
             }, done);
         });
+
+    });
+
+    describe("has_tag helper", function (done) {
+        var tags = [{name: 'haunted'}, {name: 'ghost'}];
+
+        it('has loaded has_tag helper', function () {
+            should.exist(handlebars.helpers.has_tag);
+        });
+
+        it('can call function if tag is found', function() {
+            helpers.has_tag.call({tags: tags}, 'haunted', {
+                fn: function(tags) {
+                    should.exist(tags);
+                }
+            });
+        });
+
+        it('can call inverse function if tag is not found', function() {
+            helpers.has_tag.call({tags: tags}, 'undefined', {
+                inverse: function(tags) {
+                    should.exist(tags);
+                }
+            });
+       });
 
     });
 });

@@ -2,6 +2,8 @@
 var path = require('path'),
     _    = require('underscore'),
     when = require('when'),
+    createProxy = require('./proxy'),
+    config = require('../config'),
     ghostInstance,
     loader;
 
@@ -23,7 +25,7 @@ function getPluginRelativePath(name, relativeTo, ghost) {
     ghost = ghost || getGhostInstance();
     relativeTo = relativeTo || __dirname;
 
-    return path.relative(relativeTo, path.join(ghost.paths().pluginPath, name));
+    return path.relative(relativeTo, path.join(config.paths().pluginPath, name));
 }
 
 
@@ -36,7 +38,7 @@ function getPluginByName(name, ghost) {
 
     // Check for an actual class, otherwise just use whatever was returned
     if (_.isFunction(PluginClass)) {
-        plugin = new PluginClass(ghost);
+        plugin = new PluginClass(createProxy(ghost));
     } else {
         plugin = PluginClass;
     }
@@ -57,7 +59,7 @@ loader = {
 
         // Wrapping the install() with a when because it's possible
         // to not return a promise from it.
-        return when(plugin.install(ghost)).then(function () {
+        return when(plugin.install(createProxy(ghost))).then(function () {
             return when.resolve(plugin);
         });
     },
@@ -73,7 +75,7 @@ loader = {
 
         // Wrapping the activate() with a when because it's possible
         // to not return a promise from it.
-        return when(plugin.activate(ghost)).then(function () {
+        return when(plugin.activate(createProxy(ghost))).then(function () {
             return when.resolve(plugin);
         });
     }

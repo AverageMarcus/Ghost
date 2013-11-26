@@ -5,6 +5,7 @@
 /*global require, module */
 
 var Ghost  = require('../../ghost'),
+    config = require('../config'),
     api    = require('../api'),
     RSS    = require('rss'),
     _      = require('underscore'),
@@ -59,14 +60,16 @@ frontendControllers = {
                 res.render('index', {posts: posts, pagination: {page: page.page, prev: page.prev, next: page.next, limit: page.limit, total: page.total, pages: page.pages}});
             });
         }).otherwise(function (err) {
-            return next(new Error(err));
+            var e = new Error(err.message);
+            e.status = err.errorCode;
+            return next(e);
         });
     },
     'single': function (req, res, next) {
-        api.posts.read({'slug': req.params.slug}).then(function (post) {
+        api.posts.read(_.pick(req.params, ['id', 'slug'])).then(function (post) {
             if (post) {
                 ghost.doFilter('prePostsRender', post).then(function (post) {
-                    var paths = ghost.paths().availableThemes[ghost.settings('activeTheme')];
+                    var paths = config.paths().availableThemes[ghost.settings('activeTheme')];
                     if (post.page && paths.hasOwnProperty('page')) {
                         res.render('page', {post: post});
                     } else {
@@ -78,12 +81,14 @@ frontendControllers = {
             }
 
         }).otherwise(function (err) {
-            return next(new Error(err));
+            var e = new Error(err.message);
+            e.status = err.errorCode;
+            return next(e);
         });
     },
     'rss': function (req, res, next) {
         // Initialize RSS
-        var siteUrl = ghost.config().url,
+        var siteUrl = config().url,
             pageParam = req.params.page !== undefined ? parseInt(req.params.page, 10) : 1,
             feed;
         //needs refact for multi user to not use first user as default
@@ -151,7 +156,9 @@ frontendControllers = {
                 });
             });
         }).otherwise(function (err) {
-            return next(new Error(err));
+            var e = new Error(err.message);
+            e.status = err.errorCode;
+            return next(e);
         });
     }
 };

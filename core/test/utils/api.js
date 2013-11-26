@@ -10,7 +10,7 @@ var _ = require('underscore'),
             'featured', 'image', 'status', 'language', 'author_id', 'created_at', 'created_by', 'updated_at', 'updated_by',
             'published_at', 'published_by', 'page', 'author', 'user', 'tags'],
         // TODO: remove databaseVersion
-        settings: ['databaseVersion', 'title', 'description', 'email', 'logo', 'cover', 'defaultLang',
+        settings: ['databaseVersion', 'title', 'description', 'email', 'logo', 'cover', 'defaultLang', "permalinks",
             'postsPerPage', 'forceI18n', 'activeTheme', 'activePlugins', 'installedPlugins', 'availableThemes'],
         tag: ['id', 'uuid', 'name', 'slug', 'description', 'parent_id',
             'meta_title', 'meta_description', 'created_at', 'created_by', 'updated_at', 'updated_by'],
@@ -27,6 +27,9 @@ function getApiURL (route) {
 function getSigninURL () {
     return url.resolve(schema + host + ':' + port, 'ghost/signin/');
 }
+function getAdminURL () {
+    return url.resolve(schema + host + ':' + port, 'ghost/');
+}
 
 // make sure the API only returns expected properties only
 function checkResponse (jsonResponse, objectType) {
@@ -42,6 +45,7 @@ function checkResponseValue (jsonResponse, properties) {
 module.exports = {
     getApiURL: getApiURL,
     getSigninURL: getSigninURL,
+    getAdminURL: getAdminURL,
     checkResponse: checkResponse,
     checkResponseValue: checkResponseValue,
 };

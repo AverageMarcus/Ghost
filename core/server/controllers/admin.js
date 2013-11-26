@@ -1,10 +1,11 @@
 var Ghost         = require('../../ghost'),
+    config        = require('../config'),
     _             = require('underscore'),
-    fs            = require('fs-extra'),
     path          = require('path'),
+    when          = require('when'),
     api           = require('../api'),
-    moment        = require('moment'),
     errors        = require('../errorHandling'),
+    storage       = require('../storage'),
 
     ghost         = new Ghost(),
     dataProvider  = ghost.dataProvider,
@@ -44,35 +45,20 @@ function setSelected(list, name) {
 }
 
 adminControllers = {
-    'get_storage': function () {
-        // TODO this is where the check for storage plugins should go
-        // Local file system is the default 
-        var storageChoice = 'localfilesystem.js';
-        return require('./storage/' + storageChoice);
-    },
     'uploader': function (req, res) {
         var type = req.files.uploadimage.type,
             ext = path.extname(req.files.uploadimage.name).toLowerCase(),
-            storage = adminControllers.get_storage();
+            store = storage.get_storage();
 
-        if ((type !== 'image/jpeg' && type !== 'image/png' && type !== 'image/gif')
-                || (ext !== '.jpg' && ext !== '.jpeg' && ext !== '.png' && ext !== '.gif')) {
+        if ((type !== 'image/jpeg' && type !== 'image/png' && type !== 'image/gif' && type !== 'image/svg+xml')
+                || (ext !== '.jpg' && ext !== '.jpeg' && ext !== '.png' && ext !== '.gif' && ext !== '.svg' && ext !== '.svgz')) {
             return res.send(415, 'Unsupported Media Type');
         }
 
-        storage
-            .save(new Date().getTime(), req.files.uploadimage)
+        store
+            .save(req.files.uploadimage)
             .then(function (url) {
-
-                // delete the temporary file
-                // TODO convert to promise using nodefn
-                fs.unlink(req.files.uploadimage.path, function (e) {
-                    if (e) {
-                        return errors.logError(e);
-                    }
-
-                    return res.send(url);
-                });
+                return res.send(url);
             })
             .otherwise(function (e) {
                 return errors.logError(e);
@@ -99,9 +85,13 @@ adminControllers = {
         if (!denied) {
             loginSecurity.push({ip: req.connection.remoteAddress, time: process.hrtime()[0]});
             api.users.check({email: req.body.email, pw: req.body.password}).then(function (user) {
-                req.session.user = user.id;
-                res.json(200, {redirect: req.body.redirect ? '/ghost/'
-                    + decodeURIComponent(req.body.redirect) : '/ghost/'});
+                req.session.regenerate(function (err) {
+                    if (!err) {
+                        req.session.user = user.id;
+                        res.json(200, {redirect: req.body.redirect ? '/ghost/'
+                            + decodeURIComponent(req.body.redirect) : '/ghost/'});
+                    }
+                });
             }, function (error) {
                 res.json(401, {error: error.message});
             });
@@ -110,7 +100,7 @@ adminControllers = {
         }
     },
     'changepw': function (req, res) {
-        api.users.changePassword({
+        return api.users.changePassword({
             currentUser: req.session.user,
             oldpw: req.body.password,
             newpw: req.body.newpassword,
@@ -120,7 +110,6 @@ adminControllers = {
         }, function (error) {
             res.send(401, {error: error.message});
         });
-
     },
     'signup': function (req, res) {
         /*jslint unparam:true*/
@@ -130,7 +119,6 @@ adminControllers = {
             adminNav: setSelected(adminNavbar, 'login')
         });
     },
-
     'doRegister': function (req, res) {
         var name = req.body.name,
             email = req.body.email,
@@ -142,17 +130,19 @@ adminControllers = {
             password: password
         }).then(function (user) {
             api.settings.edit('email', email).then(function () {
-                if (req.session.user === undefined) {
-                    req.session.user = user.id;
-                }
-                res.json(200, {redirect: '/ghost/'});
+                req.session.regenerate(function (err) {
+                    if (!err) {
+                        if (req.session.user === undefined) {
+                            req.session.user = user.id;
+                        }
+                        res.json(200, {redirect: '/ghost/'});
+                    }
+                });
             });
         }).otherwise(function (error) {
             res.json(401, {error: error.message});
         });
-
     },
-
     'forgotten': function (req, res) {
         /*jslint unparam:true*/
         res.render('forgotten', {
@@ -161,26 +151,27 @@ adminControllers = {
             adminNav: setSelected(adminNavbar, 'login')
         });
     },
-
-    'resetPassword': function (req, res) {
+    'generateResetToken': function (req, res) {
         var email = req.body.email;
 
-        api.users.forgottenPassword(email).then(function (user) {
-            var message = {
+        api.users.generateResetToken(email).then(function (token) {
+            var siteLink = '<a href="' + config().url + '">' + config().url + '</a>',
+                resetUrl = config().url + '/ghost/reset/' + token + '/',
+                resetLink = '<a href="' + resetUrl + '">' + resetUrl + '</a>',
+                message = {
                     to: email,
-                    subject: 'Your new password',
-                    html: "<p><strong>Hello!</strong></p>" +
-                          "<p>You've reset your password. Here's the new one: " + user.newPassword + "</p>" +
-                          "<p>Ghost <br/>" +
-                          '<a href="' + ghost.config().url + '">' +
-                           ghost.config().url + '</a></p>'
+                    subject: 'Reset Password',
+                    html: '<p><strong>Hello!</strong></p>' +
+                          '<p>A request has been made to reset the password on the site ' + siteLink + '.</p>' +
+                          '<p>Please follow the link below to reset your password:<br><br>' + resetLink + '</p>' +
+                          '<p>Ghost</p>'
                 };
 
             return ghost.mail.send(message);
         }).then(function success() {
             var notification = {
                 type: 'success',
-                message: 'Your password was changed successfully. Check your email for details.',
+                message: 'Check your email for further instructions',
                 status: 'passive',
                 id: 'successresetpw'
             };
@@ -190,11 +181,65 @@ adminControllers = {
             });
 
         }, function failure(error) {
+            // TODO: This is kind of sketchy, depends on magic string error.message from Bookshelf.
+            // TODO: It's debatable whether we want to just tell the user we sent the email in this case or not, we are giving away sensitive info here.
+            if (error && error.message === 'EmptyResponse') {
+                error.message = "Invalid email address";
+            }
+
             res.json(401, {error: error.message});
-        }).otherwise(errors.logAndThrowError);
+        });
+    },
+    'reset': function (req, res) {
+        // Validate the request token
+        var token = req.params.token;
+
+        api.users.validateToken(token).then(function () {
+            // Render the reset form
+            res.render('reset', {
+                bodyClass: 'ghost-reset',
+                hideNavbar: true,
+                adminNav: setSelected(adminNavbar, 'reset')
+            });
+        }).otherwise(function (err) {
+            // Redirect to forgotten if invalid token
+            var notification = {
+                type: 'error',
+                message: 'Invalid or expired token',
+                status: 'persistent',
+                id: 'errorinvalidtoken'
+            };
+
+            errors.logError(err, 'admin.js', "Please check the provided token for validity and expiration.");
+
+            return api.notifications.add(notification).then(function () {
+                res.redirect('/ghost/forgotten');
+            });
+        });
+    },
+    'resetPassword': function (req, res) {
+        var token = req.params.token,
+            newPassword = req.param('newpassword'),
+            ne2Password = req.param('ne2password');
+
+        api.users.resetPassword(token, newPassword, ne2Password).then(function () {
+            var notification = {
+                type: 'success',
+                message: 'Password changed successfully.',
+                status: 'passive',
+                id: 'successresetpw'
+            };
+
+            return api.notifications.add(notification).then(function () {
+                res.json(200, {redirect: '/ghost/signin/'});
+            });
+        }).otherwise(function (err) {
+            // TODO: Better error message if we can tell whether the passwords didn't match or something
+            res.json(401, {error: err.message});
+        });
     },
     'logout': function (req, res) {
-        req.session = null;
+        req.session.destroy();
         var notification = {
             type: 'success',
             message: 'You were successfully signed out',
