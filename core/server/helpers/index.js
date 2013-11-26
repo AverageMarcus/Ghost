@@ -1,5 +1,6 @@
 var _               = require('underscore'),
     moment          = require('moment'),
+    downsize        = require('downsize'),
     truncatise      = require('truncatise'),
     path            = require('path'),
     when            = require('when'),
