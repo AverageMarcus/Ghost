@@ -220,7 +220,7 @@ coreHelpers.excerpt = function (options) {
     //Set default values
     truncateOptions.TruncateLength = truncateOptions.TruncateLength || 2;
     truncateOptions.TruncateBy = truncateOptions.TruncateBy || "paragraphs";
-    truncateOptions.StripHTML = truncateOptions.StripHTML || false;
+    truncateOptions.StripHTML = truncateOptions.StripHTML || true;
     truncateOptions.Suffix = truncateOptions.Suffix || "";
 
     return new hbs.handlebars.SafeString(
